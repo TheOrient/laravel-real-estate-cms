@@ -23,13 +23,13 @@ jobs:
       MAIL_MAILER: array
       GROQ_API_KEY: ''
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           extensions: mbstring, dom, fileinfo, gd, exif, pdo_sqlite, intl
           coverage: none
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: npm
