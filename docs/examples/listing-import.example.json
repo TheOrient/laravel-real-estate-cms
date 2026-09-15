@@ -1,0 +1,16 @@
+{
+  "reference": "portfoy-001",
+  "title": "Mahalle adı ve doğrulanmış taşınmaz özelliği",
+  "description": "Yalnızca işletme sahibinin verdiği, doğrulanmış taşınmaz bilgilerini burada açıklayın. Bilinmeyen özellikleri veya mesafeleri tahmin etmeyin.",
+  "price": "4250000.00",
+  "category_id": 0,
+  "city_id": 0,
+  "district_id": 0,
+  "neighborhood_id": null,
+  "latitude": null,
+  "longitude": null,
+  "attributes": {},
+  "photos": ["salon.jpg", "balkon.jpg"],
+  "video_url": null,
+  "allow_whatsapp": false
+}

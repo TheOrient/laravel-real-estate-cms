@@ -1,0 +1,61 @@
+<?php
+
+return [
+    'blog'                  => 'Blog',
+    'posts'                 => 'Posts',
+    'all_posts'             => 'All Posts',
+    'new_post'              => 'New Post',
+    'edit_post'             => 'Edit Post',
+    'create_post'           => 'Create Post',
+    'list_posts'            => 'Post List',
+
+    'title'                 => 'Title',
+    'slug'                  => 'URL (Slug)',
+    'slug_help'             => 'Auto-generated from the title if left empty.',
+    'excerpt'               => 'Excerpt',
+    'excerpt_help'          => 'Shown in lists and social shares. Falls back to the content when empty.',
+    'body'                  => 'Content',
+    'cover_image'           => 'Cover Image',
+    'cover_image_help'      => 'Recommended: 1280×720, max 4 MB. JPG, PNG or WebP.',
+    'status'                => 'Status',
+    'status_draft'          => 'Draft',
+    'status_published'      => 'Published',
+    'is_active'             => 'Active',
+    'is_featured'           => 'Featured',
+    'published_at'          => 'Publish Date',
+    'published_at_help'     => 'A future date will schedule the post for auto-publishing.',
+    'author'                => 'Author',
+    'meta_title'            => 'Meta Title (SEO)',
+    'meta_description'      => 'Meta Description (SEO)',
+    'meta_keywords'         => 'Meta Keywords (SEO)',
+
+    'general'               => 'General',
+    'translations'          => 'Translations',
+    'seo'                   => 'SEO',
+
+    'save'                  => 'Save',
+    'save_and_publish'      => 'Save & Publish',
+    'cancel'                => 'Cancel',
+    'back'                  => 'Back',
+    'delete'                => 'Delete',
+    'delete_confirm'        => 'Are you sure you want to delete this post?',
+
+    'filter'                => 'Filter',
+    'search_placeholder'    => 'Search by title…',
+    'all_statuses'          => 'All Statuses',
+
+    'column_id'             => '#',
+    'column_image'          => 'Image',
+    'column_title'          => 'Title',
+    'column_status'         => 'Status',
+    'column_views'          => 'Views',
+    'column_published_at'   => 'Published',
+    'column_actions'        => 'Actions',
+
+    'no_posts'              => 'No blog posts have been created yet.',
+
+    'created_successfully'  => 'Blog post created successfully.',
+    'updated_successfully'  => 'Blog post updated successfully.',
+    'deleted_successfully'  => 'Blog post deleted successfully.',
+    'title_required_default' => 'A title in the default language is required.',
+];
