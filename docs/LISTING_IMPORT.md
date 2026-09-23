@@ -1,95 +1,133 @@
-# İlan ve fotoğraf içe aktarma
+# Listing Import Guide
 
-Bu özellik mevcut veritabanı, danışman paneli ve ilan galerisiyle çalışır. Yeni bir veritabanı, ücretli API veya internete açık yazma uç noktası gerekmez. Komutlara yalnızca sunucu/proje erişimi olan güvenilir operatörler erişir; `--agent` bir giriş anahtarı değil, ilanın atanacağı danışmandır.
+The listing importer adds properties and their local image packages to an existing installation through an explicit command-line workflow. It does not crawl websites, run as a background bot, or publish listings automatically.
 
-## Sohbetten ilan ekleme
+Imports are created as drafts by default. Publishing requires an explicit flag.
 
-İşletme sahibi bilgileri ve kullanma hakkına sahip olduğu gerçek fotoğrafları gönderir. Operatör/yardımcı aşağıdaki sırayla çalışır:
+## Before you begin
 
-1. Satılık/kiralık, taşınmaz türü, fiyat, ilçe/mahalle, oda sayısı, net/brüt alan ve verilen diğer özellikleri bir pakete dönüştürür. Bilinmeyen özellikleri, adresi veya koordinatları tahmin etmez.
-2. Mevcut kategori, mahalle ve danışman kimliklerini katalogdan seçer. Satılık/kiralık seçimi en alt kategoriyle belirlenir.
-3. İlk fotoğrafı kapak, kalanları gönderilen sırada galeri olarak ayarlar.
-4. Önce kayıt yapmadan kontrol eder, sonra taslak kaydeder. Yayın için açık talimat varsa `--publish` kullanır.
-5. İlan numarası, taslak/yayın durumu ve uygun panel/site bağlantısını bildirir.
-
-Bu bir mesajları arka planda izleyen bot değildir. Yardımcının o oturumda proje/sunucuya ve gönderilen dosyalara erişimi gerekir. Canlı site başka sunucuya taşındığında komut da o sunucuda, onun veritabanı ayarlarıyla çalıştırılır. MySQL'i internete açmayın, root parolasını veya API anahtarlarını GitHub'a koymayın.
-
-## Bir defalık kurulum
-
-Önce veritabanı yedeği alın. Mevcut verileri silmeyen bu migration, mükerrer aktarımı önlemek için iki boş alan ve benzersiz referans indeksi ekler:
+1. Back up the database and uploaded media.
+2. Confirm that the target categories, locations, and feature values already exist.
+3. Apply the migration that adds the stable import reference:
 
 ```bash
-php artisan migrate --path=database/migrations/2026_09_11_120000_add_import_reference_to_listings.php
+php artisan migrate
 ```
 
-Bu özellik için seed, `migrate:fresh` veya veritabanı sıfırlama **çalıştırılmaz**. GD/WebP desteği ve `public/uploads/listings` için yazma izni gerekir. Projedeki mevcut resim işleme bağımlılıkları kullanılır.
-
-## Katalog ve paket
-
-```bash
-php artisan listings:import-catalog
-php artisan listings:import-catalog --category=GERCEK_KATEGORI_ID
-```
-
-İlk komut aktif danışmanları, alt kategorileri ve konumları gösterir. İkincisi seçilen kategorinin miras alınan özelliklerini, zorunlu alanlarını ve seçenek kimliklerini de verir. Örnek dosyadaki kimlikler **yer tutucudur**; katalogdaki gerçek değerlerle değiştirin.
-
-Paketleri web kökünün dışında, örneğin Git tarafından dışlanan `storage/app/private/listing-imports/portfoy-001/` altında tutun:
+The related migration is:
 
 ```text
-portfoy-001/
-  listing.json
-  salon.jpg
-  balkon.jpg
+database/migrations/2026_09_11_120000_add_import_reference_to_listings.php
 ```
 
-Başlangıç şablonu: [listing-import.example.json](examples/listing-import.example.json).
+## Inspect the destination catalog
 
-- `reference`: Her ilan için kalıcı, benzersiz küçük harf/rakam/tire/alt çizgi, en çok 80 karakter.
-- `title`, `description`: Kaynak dilinde düz metin; HTML kabul edilmez. Başlık en çok 200, açıklama 20–20.000 karakter.
-- `price`: Sitenin mevcut para biriminde, binlik ayracı olmadan: `4250000` veya `4250000.00`. Yeni para birimi eklemez.
-- `category_id`, `city_id`, `district_id`: Zorunlu; mahalle isteğe bağlıdır. Konum hiyerarşisi ve aktiflik doğrulanır.
-- `attributes`: Anahtar özellik kimliğidir. Sayısal/metinsel alanlara değer; seçim alanlarına seçenek kimliği veya seçenek kimlikleri dizisi verilir. Yayında kategorinin zorunlu özellikleri aranır.
-- `latitude`, `longitude`: İkisi birlikte verilir veya ikisi de boş bırakılır. Kesin konum bilinmiyorsa uydurmayın.
-- `photos`: Paket içindeki göreli dosya yolları. İlk fotoğraf kapaktır. Yayında en az bir fotoğraf gerekir; taslak fotoğrafsız olabilir.
-- `video_url`: İsteğe bağlı HTTPS YouTube/Vimeo bağlantısı; bu komut video dosyası yüklemez.
-- `allow_whatsapp`: İsteğe bağlı `true`/`false`, varsayılan `false`.
-
-Kaynak dil `config/listing_import.php` içinden belirlenir; varsayılan TR'dir. Türkçe başlık URL'ye dönüştürülür, ilan kimliği eklenir. EN görünümü mevcut çeviri altyapısını kullanır; aktarım herhangi bir AI API çağrısı yapmaz.
-
-## Kontrol, taslak, yayın
-
-Aşağıdaki `DANISMAN_ID` yerine katalogdaki aktif danışman/yönetici kimliğini yazın:
+Use the catalog command to obtain valid identifiers for categories, locations, and listing features:
 
 ```bash
-php artisan listings:import storage/app/private/listing-imports/portfoy-001/listing.json --agent=DANISMAN_ID --dry-run
-php artisan listings:import storage/app/private/listing-imports/portfoy-001/listing.json --agent=DANISMAN_ID
+php artisan listings:catalog
 ```
 
-Yayın onayı verildiğinde aynı paketle:
+Save the output to a file if you need to map a large source dataset:
 
 ```bash
-php artisan listings:import storage/app/private/listing-imports/portfoy-001/listing.json --agent=DANISMAN_ID --publish --dry-run
-php artisan listings:import storage/app/private/listing-imports/portfoy-001/listing.json --agent=DANISMAN_ID --publish
+php artisan listings:catalog --json > catalog.json
 ```
 
-`--dry-run` verileri ve fotoğrafların açılabildiğini kontrol eder; veritabanına/dosya galerisine kayıt yapmaz. Diskte yer ve yazma izni gibi gerçek kayıt hataları ayrıca aktarım sırasında ele alınır. Çıktı JSON'dur, başarısız komut sıfırdan farklı çıkış kodu verir.
+## Import package layout
 
-`--publish` olmadan ilan ziyaretçilere kapalıdır. `admin_url` ilanın filtrelenmiş yönetim listesini, `agent_edit_url` atandığı danışmanın düzenleme ekranını açar. `--publish`, aynı referans ve aynı paket için var olan ilanın güncel içeriklerini değiştirmeden yayına alır; panelde sonradan yapılan düzenlemeler korunur. Yayından kaldırılmış ilan da bu açık talimatla yeniden açılabilir. Sonradan panelde değişiklik yapıldıysa yayın öncesi paneldeki son halini de kontrol edin.
+Create one directory containing `listings.json` and a folder for every listing's local images:
 
-## Güvenlik ve tekrar deneme
+```text
+import-package/
+├── listings.json
+└── images/
+    ├── demo-residence-001/
+    │   ├── 01-front.jpg
+    │   ├── 02-living-room.jpg
+    │   └── 03-kitchen.png
+    └── demo-office-002/
+        ├── 01-exterior.jpg
+        └── 02-workspace.jpg
+```
 
-- Aynı referans + aynı içerik + aynı danışman + aynı sıradaki fotoğraf baytları tekrar gönderilirse yeni ilan/fotoğraf oluşturulmaz. Taslak komutu yayındaki ilanı kapatmaz.
-- Aynı referansa farklı içerik veya silinmiş ilan bağlıysa işlem reddedilir. Güncelleme için paneli kullanın; farklı referans vererek mükerrer ilan yaratmayın.
-- Fotoğraflar JPG/PNG/WebP, en çok 20 adet, dosya başına 10 MB ve 24 milyon piksel olabilir. Sınırlar `config/listing_import.php` içindedir.
-- Fotoğraflar yönleri düzeltilerek en çok 1920 × 1920 sınırına ölçeklenir ve WebP olarak yeniden kodlanır. Orijinaller değiştirilmez. Uzak URL'ler, klasör dışına taşan yollar/symlinkler ve SVG kabul edilmez.
-- Veritabanı işlemi tek transaction içindedir. Yakalanan hata olursa yeni kayıtlar geri alınır ve yalnızca o denemenin oluşturduğu galeri klasörü temizlenir. İşlemin zorla öldürülmesi/güç kesilmesi dosya artıklarını bırakabilir; bu durumda yeniden denemeden önce günlük ve ilgili aktarım klasörü kontrol edilir.
-- Mevcut ilanlar ve diğer galeriler silinmez. Sosyal medyada otomatik paylaşım tetiklenmez; yayın yalnızca bu sitede yapılır.
-- İlan JSON'larını, fotoğrafları, kişisel bilgileri ve veritabanı yedeklerini GitHub'a eklemeyin.
+The image filenames determine gallery order. Supported formats are validated by the importer and converted to the application's optimized gallery format.
 
-## Test
+## JSON format
+
+```json
+[
+  {
+    "source_reference": "demo-residence-001",
+    "category_id": 1,
+    "subcategory_id": 2,
+    "title": "Fictional Garden Residence",
+    "description": "Demonstration copy only. Replace before production use.",
+    "price": 425000,
+    "currency": "EUR",
+    "country_id": 1,
+    "state_id": 1,
+    "city_id": 1,
+    "address": "100 Example Avenue",
+    "latitude": 52.520008,
+    "longitude": 13.404954,
+    "bedrooms": 3,
+    "bathrooms": 2,
+    "area": 145,
+    "feature_ids": [1, 3, 5],
+    "images_directory": "images/demo-residence-001"
+  }
+]
+```
+
+Use only fictional or properly licensed content in public demo repositories. Never place customer exports, portal credentials, private addresses, or production media inside an import package committed to Git.
+
+## Validate with a dry run
+
+Always validate the package first:
 
 ```bash
-php artisan test --filter=ListingImportTest
+php artisan listings:import /absolute/path/to/import-package/listings.json --dry-run
 ```
 
-Testler gerçek MySQL'e erişmez; bellek içi SQLite ve sahte fotoğraf diski kullanır. Taslak/yayın, tekrar deneme, hatalı konum/özellik/dosya, hata anında geri alma ve katalog çıktısı kontrol edilir.
+The dry run checks the input without creating records or copying images.
+
+## Import as drafts
+
+```bash
+php artisan listings:import /absolute/path/to/import-package/listings.json
+```
+
+Review every imported listing in the administration panel before publication.
+
+## Import and publish explicitly
+
+```bash
+php artisan listings:import /absolute/path/to/import-package/listings.json --publish
+```
+
+Use `--publish` only when the source data, media rights, pricing, location, and legal copy have already been reviewed.
+
+## Duplicate protection and retries
+
+- `source_reference` must be unique and stable for each external record.
+- Re-running the same package updates or skips the matching record according to the importer's rules rather than creating uncontrolled duplicates.
+- Keep the original package until the import has been verified.
+- If an import fails, correct the reported validation issue and repeat the dry run before retrying.
+
+## Security
+
+- Run imports from a trusted local path, not directly from a public upload.
+- Keep image and JSON packages outside the public web root.
+- Validate the provenance and usage rights of every image.
+- Do not embed API keys, passwords, session cookies, or portal tokens in JSON.
+- Limit command access to trusted administrators.
+- Back up both the database and `storage/app/public` before a large import.
+
+## Test the importer
+
+```bash
+php artisan test
+```
+
+For a production deployment, test a small draft-only package first and verify the generated listing, location, attributes, and gallery order in the administration panel.

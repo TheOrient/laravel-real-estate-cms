@@ -1,141 +1,150 @@
-# Emlak Portalları XML Feed Entegrasyonu
+# Portal Feed Integration Guide
 
-Bu doküman **Sahibinden**, **Emlakjet**, **Hurriyet Emlak**, **Zingat** ve **Hepsihome** gibi Türk emlak portallarına ilanları otomatik dağıtma yöntemini açıklar.
+The project includes configurable XML and JSON listing feed endpoints that can serve as a foundation for third-party property portal integrations.
 
----
+These endpoints are integration templates, not a guarantee of compatibility with any named portal. Feed schemas, authentication methods, media rules, commercial terms, and approval processes can change. Obtain the current specification from the target portal and validate the generated feed before production use.
 
-## 🎯 Nasıl Çalışır?
+## Available endpoints
 
-Emlak portalları kurumsal müşterilerine iki entegrasyon modeli sunar:
+The application exposes feed routes in the following form:
 
-| Model | Nasıl İşler | Bu Sitede Kullanım |
-|---|---|---|
-| **XML Feed (pull)** | Portal, sizin verdiğiniz URL'i periyodik olarak (genelde 1-4 saatte bir) tarar ve değişen ilanları kendi tarafına çeker | ✅ **Bu proje bunu sağlıyor** — hazır 4 endpoint var |
-| **REST API (push)** | Siz her ilan değişiminde portal'ın API'sine POST atarsınız | ❌ Portal-özel, sözleşme sonrası ayrı bir modül yazılır |
-
-**Feed modeli** hem sözleşme hem geliştirme açısından daha kolay: portal panelinden URL'i kaydeder, geri kalan iş biter.
-
----
-
-## 🔗 Hazır Feed URL'leri
-
-Site canlıya çıktığında her portal için ayrı bir URL vardır:
-
-| Portal | Feed URL | Şema |
-|---|---|---|
-| **Emlakjet** | `https://example.test/feed/emlakjet.xml` | Emlakjet flavour |
-| **Sahibinden** | `https://example.test/feed/sahibinden.xml` | Sahibinden `<Ads>` şeması |
-| **Hurriyet Emlak** | `https://example.test/feed/hurriyet.xml` | `<realEstateExport>` |
-| **Zingat / Hepsihome / diğer** | `https://example.test/feed/generic.xml` | RETS-benzeri fallback |
-
-Feed'de sadece **aktif + onaylı + süresi geçmemiş** ilanlar yer alır. Kişisel bilgi veya iç not paylaşılmaz.
-
----
-
-## 📋 Portal-Bazlı Kurulum Adımları
-
-### 1. Sahibinden.com Kurumsal Üyelik
-
-1. https://kurumsal.sahibinden.com adresinden başvuru yapın (aylık paket, min. 3 ay taahhüt)
-2. Sözleşme sonrası hesap yöneticiniz size bir "Referans XML" gönderir
-3. Bu belgeye göre `resources/views/feeds/sahibinden.blade.php` içindeki alan adlarını doğrulayın (çoğu %90 uyumlu — kalan %10 portal-özeldir)
-4. Kurumsal panelde **"XML Kaynağı Ekle"** sekmesinde `https://example.test/feed/sahibinden.xml` URL'ini kaydedin
-5. Test taramasını tetikleyin; hata varsa platformun kurumsal destek kanalıyla iletişime geçin
-
-### 2. Emlakjet
-
-1. https://kurumsal.emlakjet.com üzerinden başvuru — Emlakjet paketleri Sahibinden'e göre daha esnek (single-office ofisler için uygun paketleri var)
-2. Onay sonrası panelinizden **"XML Feed"** seçeneği aktifleşir
-3. `https://example.test/feed/emlakjet.xml` URL'ini yapıştırın, kaydet
-4. İlk import 15-60 dk içinde tamamlanır; portal panelinden hata log'unu takip edin
-5. Görsel sıra ve boyut kontrolü Emlakjet tarafında ortalama 1 saat
-
-### 3. Hurriyet Emlak
-
-1. https://kurumsal.hurriyet.com.tr → Emlak kurumsal başvuru
-2. Sözleşme sonrası **ExportInterface** paneli açılır
-3. `https://example.test/feed/hurriyet.xml` URL'ini "Kaynak URL" alanına girin
-4. `coordinates` bloğu opsiyonel — ancak Hurriyet Emlak'ta harita gösterimi için önerilir (bizim feed'de zaten var)
-
-### 4. Zingat, Hepsihome, Endeksa (Generic)
-
-Bu üç portal RETS/1.7.2 benzeri standart şema kabul eder. `https://example.test/feed/generic.xml` her üçüne de gönderilebilir. Portal-özel bir farklılık gelirse `resources/views/feeds/` altına yeni bir `.blade.php` template ve `PortalFeedController`'a yeni bir method eklemek yeterli.
-
----
-
-## 🛠 Kod İnceleme / Özelleştirme
-
-**Ana dosyalar:**
-
-```
-app/Http/Controllers/PortalFeedController.php   # 4 method: emlakjet, sahibinden, hurriyet, generic
-resources/views/feeds/emlakjet.blade.php        # Emlakjet XML şablonu
-resources/views/feeds/sahibinden.blade.php      # Sahibinden şablonu
-resources/views/feeds/hurriyet.blade.php        # Hurriyet Emlak şablonu
-resources/views/feeds/generic.blade.php         # RETS-benzeri fallback
-routes/web.php (satır ~52)                      # 4 route kaydı
+```text
+https://properties.example.com/feeds/listings.xml
+https://properties.example.com/feeds/listings.json
 ```
 
-**Yeni portal eklemek için:**
+Use the route list to confirm the exact paths in your installed version:
 
-1. `resources/views/feeds/yeni_portal.blade.php` — portal'ın istediği XML şemasını yaz
-2. `PortalFeedController` içine `public function yeni_portal(): Response` metodu ekle
-3. `routes/web.php` içine `Route::get('/feed/yeni_portal.xml', ...)` ekle
+```bash
+php artisan route:list
+```
 
----
+Only public, eligible listings should be included. Drafts, archived records, incomplete listings, and records excluded by business rules must remain outside the feed.
 
-## ⚙️ Hangi İlanlar Feed'e Girer?
+## Recommended integration process
 
-`publishableListings()` filtresi:
+1. Request the current technical specification and account requirements from the target portal.
+2. Map required portal fields to the application's listing, location, category, feature, and media data.
+3. Add any portal-specific identifiers as configurable values rather than hardcoded constants.
+4. Generate a small test feed containing fictional or approved staging records.
+5. Validate encoding, required fields, currency, measurement units, image URLs, and listing status.
+6. Submit the test feed through the portal's official onboarding or validation process.
+7. Enable production exports only after approval and monitoring are in place.
 
-- `status = 'active'`
-- `is_approved = true`
-- `is_active = true`
-- `expires_at IS NULL OR expires_at > now()`
-- Son 50.000 ilan (portal timeout'una karşı sınır)
+## Data quality checklist
 
-Portal tarama sırasında ilan pasifleştirilir/silinirse **bir sonraki taramada** portal tarafında da düşürülür — genelde 1-4 saatlik gecikme normaldir.
+Before exposing a feed, verify that every exported record has:
 
----
+- A stable external identifier
+- A valid publication status
+- A title and description in the required language
+- An accepted category and transaction type
+- A numeric price and supported currency
+- A complete location mapping
+- Valid property attributes and units
+- Public HTTPS image URLs
+- Properly licensed media
+- A canonical public listing URL
+- Accurate creation and update timestamps
 
-## 🔒 Güvenlik
+Avoid exporting internal notes, owner details, private contact data, unpublished media, or administration URLs.
 
-- Feed'ler **anonim**: portal indexer'ları kimlik doğrulaması olmadan crawler olarak çeker (standart yaklaşım)
-- Personel notu, iç yorum, alıcı iletişimi feed'de **yer almaz**
-- Rate-limit yok — portal'lar günde ~24 kez tarayacaktır (Nginx / Cloudflare üzerinden ekstra sınırlama koyabilirsiniz)
+## Portal-specific mapping
 
----
+Keep each integration isolated so changes for one consumer do not affect another. A typical adapter maps:
 
-## 💰 Portal Maliyetleri (2026 Q3 Referans)
+```text
+Internal listing
+├── identity and status
+├── category and transaction type
+├── localized title and description
+├── price and currency
+├── country, region, city, district, and address
+├── coordinates
+├── rooms, area, and feature values
+├── public image URLs
+└── canonical listing URL
+        ↓
+Portal-specific XML or JSON contract
+```
 
-Bu ücretler ortalamadır, sözleşmede güncel değer geçerlidir:
+Prefer dedicated transformer or service classes for portal-specific rules. Keep controllers limited to authorization, request handling, and the response.
 
-| Portal | Kurumsal Aylık | Ekstra İlan | Alt Sözleşme |
-|---|---|---|---|
-| Sahibinden | ₺15.000+ | Pakete göre | Aylık, min 3 ay |
-| Emlakjet | ₺3.500+ | Kredi bazlı | Aylık, esnek |
-| Hurriyet Emlak | ₺5.000+ | 500 ilan üstü ek | 6 ay taahhüt |
-| Zingat | ₺2.500+ | Genişleyebilir | Aylık |
-| Hepsihome | ₺2.000+ | Ekstra: 25 ₺/ilan | Aylık |
+## Access control
 
-Tek-ofis stratejisinde önerim: **Sahibinden + Emlakjet** ikilisiyle başlayın. Bu ikisi Kuşadası pazarında talebin %75'ini karşılar.
+If a portal supports a secret token, HTTP Basic authentication, signed requests, or IP allowlisting, enforce the mechanism required by its current specification.
 
----
+Do not place credentials directly in routes, controllers, templates, or committed configuration. Store secrets in environment variables:
 
-## ❓ SSS
+```env
+PORTAL_FEED_ENABLED=false
+PORTAL_FEED_TOKEN=replace-with-a-random-secret
+```
 
-**S: Portal API'si direkt POST etmek daha hızlı olmaz mı?**
-C: Teknik olarak evet ama her portal farklı API + auth + rate-limit gerektirir. XML feed 1 kez yaz, N portal'a ver — bu proje için doğru trade-off.
+When a token is used, send it in an authorization header rather than a query string whenever the receiving service supports that approach. Query-string credentials can be retained in browser history, proxy logs, and analytics systems.
 
-**S: İlan sayım 100'ü aştığında feed yavaşlar mı?**
-C: 5.000 ilana kadar sorunsuz; 5-50.000 arasında `queue` üzerinden cached feed generation önerilir (`php artisan schedule` içine bir job ekleyin).
+## Media requirements
 
-**S: Feed'de sadece belirli kategorileri paylaşmak istersem?**
-C: `PortalFeedController::publishableListings()` içindeki query'ye `->whereHas('category', ...)` filtresi ekleyin.
+- Export absolute HTTPS URLs.
+- Ensure images are publicly reachable without an authenticated session.
+- Do not expose original uploads if a sanitized derivative is intended for publication.
+- Preserve a deterministic gallery order.
+- Provide dimensions and MIME types if required by the portal.
+- Confirm each portal's current limits before deciding image count or file size.
 
-**S: Facebook / Instagram otomatik paylaşımı gibi bir şey de yapabilir mi?**
-C: Evet — Meta Graph API tarafı `.env`'de `META_PAGE_ACCESS_TOKEN` yapılandırıldığında yeni ilan yayınlanınca otomatik post atacak modül `Yol Haritası`'nda planlı.
+## Performance and caching
 
----
+For large inventories, avoid rebuilding the entire feed for every request. Generate or cache the feed for a bounded interval and invalidate it when an eligible listing changes.
 
-**Sorular için:** GitHub üzerinde bir issue açın.
+Useful safeguards include:
+
+- Response caching
+- Chunked database reads
+- Eager loading for related categories, locations, and media
+- Request rate limiting
+- Generation timeouts
+- Structured error logging
+- Health monitoring for stale feeds
+
+Never cache credentials or private listing fields inside a publicly accessible file.
+
+## XML safety
+
+- Emit UTF-8.
+- Escape all text and attribute values through a proper XML writer.
+- Avoid hand-building XML through string concatenation.
+- Reject invalid control characters.
+- Validate the result against the portal's schema when an XSD is provided.
+- Use CDATA only when the target contract specifically requires it.
+
+## JSON safety
+
+- Return the declared content type and UTF-8 encoding.
+- Use framework serialization rather than assembling JSON strings.
+- Keep numeric values numeric when required by the contract.
+- Use a documented timestamp format and timezone.
+- Do not leak hidden model attributes or unrelated relationships.
+
+## Testing
+
+Add automated coverage for:
+
+- Draft and archived listing exclusion
+- Required field mapping
+- Localized content
+- Category and location conversion
+- Currency and numeric formatting
+- XML escaping and valid JSON
+- Public image URLs and ordering
+- Authentication failures
+- Cache invalidation after listing updates
+
+Run the application suite before deployment:
+
+```bash
+php artisan test
+```
+
+## Operational notes
+
+Treat a portal feed as a production data interface. Assign an owner, document the target contract version, monitor failures, rotate credentials, and keep a rollback path. If the portal changes its specification, update and revalidate its adapter before re-enabling exports.

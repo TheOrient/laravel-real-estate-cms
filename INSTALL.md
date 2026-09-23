@@ -1,225 +1,204 @@
-# Kurulum Rehberi — Real Estate Corporate Website & CMS
+# Installation Guide
 
-Açık kaynak, çok dilli (TR/EN), tek-ofis odaklı gayrimenkul CMS'inin sıfırdan kurulum kılavuzu. Tahmini süre: **15–20 dakika** (local), **45 dakika** (production).
+This guide covers a clean local installation and the main production preparation steps for the Real Estate Corporate Website & CMS Listing System.
 
----
+## Requirements
 
-## 📋 Sistem Gereksinimleri
+- PHP 8.2 or later
+- Composer 2.5 or later
+- Node.js 20.19+ or 22.12+ and npm 9+
+- MySQL 8, MariaDB 10.6+, or PostgreSQL 15+
+- PHP extensions required by Laravel, including Ctype, cURL, DOM, Fileinfo, Filter, Hash, Mbstring, OpenSSL, PCRE, PDO, Session, Tokenizer, and XML
+- A web server such as Nginx or Apache for production
 
-| Bileşen | Minimum | Önerilen |
-|---|---|---|
-| PHP | 8.2 | 8.3 |
-| Composer | 2.5+ | latest |
-| Node.js | 20.19 veya 22.12+ | 24 |
-| npm | 9 | latest |
-| MySQL | 8.0 | 8.0+ |
-| MariaDB | 10.6 | 10.11+ |
-| PostgreSQL | 15 | 16+ |
-| Web Server | nginx 1.20+ / Apache 2.4+ | nginx |
-| Disk | 500 MB | 2 GB+ |
-| RAM | 1 GB | 2 GB+ |
+Optional integrations may require their own API credentials. The base website does not require an AI API or Google Maps key.
 
-### PHP Extensions
-
-`php -m` çıktısında şu extension'lar **mutlaka** olmalı:
-
-```
-bcmath  ctype  curl  dom  fileinfo  filter  gd  hash
-mbstring  mysqlnd  openssl  pcre  pdo  pdo_mysql
-session  tokenizer  xml  zip  intl  exif
-```
-
-Eksik olanları yükleyin:
-
-```bash
-# Ubuntu / Debian
-sudo apt install php8.2-{bcmath,curl,gd,intl,mbstring,mysql,xml,zip,exif}
-
-# macOS (Homebrew)
-brew install php@8.2
-brew install --cask xampp  # alternatif: tek pakette PHP + MySQL + Apache
-
-# Windows
-# XAMPP indirin: https://www.apachefriends.org
-```
-
----
-
-## 🚀 Adım 1 — Kodu İndir
+## 1. Download the project
 
 ```bash
 git clone https://github.com/TheOrient/laravel-real-estate-cms.git
 cd laravel-real-estate-cms
 ```
 
-Veya zip indirip açın:
+For a stable production deployment, check out a tagged release when one is available instead of tracking the development branch.
+
+## 2. Install dependencies
 
 ```bash
-unzip laravel-real-estate-cms-main.zip
-cd laravel-real-estate-cms-main
-```
-
----
-
-## 📦 Adım 2 — Bağımlılıkları Yükle
-
-### Composer (PHP packages)
-
-```bash
-composer install --no-dev --optimize-autoloader  # production
-# veya
-composer install                                  # development
-```
-
-### NPM (frontend asset'leri)
-
-```bash
+composer install
 npm install
-npm run build              # production
-# veya
-npm run dev                # development — auto-rebuild
+npm run build
 ```
 
----
+For production, install PHP packages without development dependencies:
 
-## ⚙️ Adım 3 — Environment Ayarları
+```bash
+composer install --no-dev --prefer-dist --optimize-autoloader
+```
+
+## 3. Create the environment file
 
 ```bash
 cp .env.example .env
 php artisan key:generate
 ```
 
-`.env` dosyasını açın ve **en az** şu alanları doldurun:
+Set the application URL and database connection in `.env`:
 
 ```env
-# === Temel ===
-APP_NAME="Open-Source Real Estate CMS"
-APP_ENV=local                          # production'da: production
-APP_DEBUG=true                         # production'da: false
-APP_URL=http://localhost:8000          # production: https://your-domain.com
-SESSION_SECURE_COOKIE=false            # HTTPS production'da: true
+APP_NAME="Real Estate CMS"
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://localhost:8000
 
-# === Database ===
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_DATABASE=real_estate_cms
-DB_USERNAME=root
-DB_PASSWORD=
-
-# === Locale ===
-APP_LOCALE=tr
-APP_FALLBACK_LOCALE=tr
-
-# === Cache & Session ===
-CACHE_STORE=database
-SESSION_DRIVER=database
-QUEUE_CONNECTION=database
-
-# === AI / Chatbot (opsiyonel — yoksa AI özellikleri pasif) ===
-GROQ_API_KEY=
-GROQ_MODEL=openai/gpt-oss-20b
-
-# === Mail (iletişim formu için) ===
-MAIL_MAILER=smtp
-MAIL_HOST=smtp.mailtrap.io
-MAIL_PORT=2525
-MAIL_USERNAME=
-MAIL_PASSWORD=
-MAIL_FROM_ADDRESS="no-reply@example.com"
-MAIL_FROM_NAME="${APP_NAME}"
+DB_USERNAME=real_estate_user
+DB_PASSWORD=use-a-strong-database-password
 ```
 
-> AI özellikleri isteğe bağlıdır. Groq anahtarı eklenmezse uygulamanın temel CMS işlevleri çalışmaya devam eder.
+PostgreSQL is also supported:
 
----
+```env
+DB_CONNECTION=pgsql
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_DATABASE=real_estate_cms
+DB_USERNAME=real_estate_user
+DB_PASSWORD=use-a-strong-database-password
+```
 
-## 🗄 Adım 4 — Veritabanı
+Do not reuse the example passwords in a real environment.
 
-### Database oluştur
+## 4. Configure the initial administrator
+
+Add unique credentials before running the seeders:
+
+```env
+ADMIN_NAME="Site Administrator"
+ADMIN_EMAIL=admin@example.test
+ADMIN_PASSWORD=replace-with-a-long-unique-password
+```
+
+The initial administrator account is created only during the fresh-install seeding process.
+
+## 5. Create the database
+
+Create an empty database and grant the configured database user access to it. Use a dedicated user with only the permissions the application needs.
+
+Example for MySQL:
 
 ```sql
 CREATE DATABASE real_estate_cms
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
+
+CREATE USER 'real_estate_user'@'localhost'
+  IDENTIFIED BY 'replace-with-a-strong-password';
+
+GRANT ALL PRIVILEGES ON real_estate_cms.*
+  TO 'real_estate_user'@'localhost';
+
+FLUSH PRIVILEGES;
 ```
 
-Veya MySQL CLI:
+Make sure the password matches the value in `.env`.
 
-```bash
-mysql -u root -p -e "CREATE DATABASE real_estate_cms CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-```
-
-### Migrate + Seed
-
-Bu bölüm **yalnızca boş veritabanına ilk kurulum** içindir. Var olan siteyi taşırken veritabanı yedeğini geri yükleyin ve sadece gerekli migration dosyalarını uygulayın. `db:seed` bir güncelleme komutu değildir; mevcut kullanıcı/içerik varsa güvenlik amacıyla durur. `migrate:fresh` mevcut verileri siler ve canlı sitede kullanılmaz.
+## 6. Run migrations and install demo data
 
 ```bash
 php artisan migrate
 php artisan db:seed
 ```
 
-Seed komutu şunları kurar:
+The seeders provide fictional property listings, blog posts, pages, settings, and an administrator account so the interface can be evaluated immediately.
 
-- ✅ `.env` içindeki `ADMIN_EMAIL` / `ADMIN_PASSWORD` ile tek yönetici hesabı
-- ✅ TR + EN diller
-- ✅ Örnek konum ağacı (şehir → ilçe → mahalle)
-- ✅ Emlak kategori ağacı (Satılık/Kiralık Daire, Villa, Müstakil Ev, Arsa, vb.)
-- ✅ 5 örnek gayrimenkul ilanı (her birinde 5–7 görsel)
-- ✅ 6 örnek blog yazısı (gayrimenkul rehberi içerikleri)
-- ✅ CMS sayfaları (Hakkımızda, İletişim, Gizlilik, Kullanım Koşulları, vb.)
-- ✅ Varsayılan marka ayarları (`/admin/settings` üzerinden istediğiniz değerle değiştirin)
+> Only run the full seed process on a new, empty database. Do not run it against an existing production database unless you have reviewed every seeder and have a verified backup.
 
-> ⚠️ **Production'da `php artisan db:seed` çalıştırmadan önce** `.env` içinde en az 12 karakterli, benzersiz `ADMIN_PASSWORD` tanımlayın. Mevcut şifreyi `/panel/profile` üzerinden veya tinker ile değiştirebilirsiniz:
-> ```bash
-> php artisan tinker
-> User::where('user_role', 'admin')->first()->update(['password' => Hash::make('YENİ_GÜÇLÜ_ŞİFRE')]);
-> ```
-
-Gerçek ilanların fotoğraflarıyla güvenli girişi için [ilan aktarma rehberini](docs/LISTING_IMPORT.md) kullanın. Örnek içerik yükleyicisini tekrar çalıştırmayın.
-
----
-
-## 🔗 Adım 5 — Storage Link
-
-Public uploads için symlink oluştur:
+## 7. Create the public storage link
 
 ```bash
 php artisan storage:link
 ```
 
-Bu, `public/storage` → `storage/app/public` linki kurar.
+The web-server user must be able to write to `storage` and `bootstrap/cache`.
 
----
-
-## 🎬 Adım 6 — Çalıştır
-
-### Development
+## 8. Start the local server
 
 ```bash
 php artisan serve
 ```
 
-Tarayıcıdan açın: **http://localhost:8000**
+Open:
 
-Worker memory için ek bağımsız işlemler isteniyorsa:
+- Website: `http://localhost:8000`
+- Administration sign-in: `http://localhost:8000/login`
 
-```bash
-PHP_CLI_SERVER_WORKERS=4 php artisan serve
+Use the administrator credentials configured in `.env`.
+
+## Optional services
+
+### AI translation and visitor chatbot
+
+```env
+GROQ_API_KEY=your-api-key
+GROQ_MODEL=your-compatible-model
 ```
 
-### Production (nginx + PHP-FPM)
+Without these values, the application continues to work and displays source-language content. AI-backed features remain disabled or use their built-in fallback behavior.
 
-Örnek nginx config:
+### Google Maps
+
+```env
+MAPS_PROVIDER=google
+GOOGLE_MAPS_API_KEY=your-google-maps-key
+```
+
+If these values are omitted, the default Leaflet and OpenStreetMap-compatible setup is used.
+
+### Mail delivery
+
+Configure a production mail provider for password reset and other application messages:
+
+```env
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.example.test
+MAIL_PORT=587
+MAIL_USERNAME=your-smtp-user
+MAIL_PASSWORD=your-smtp-password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=no-reply@example.test
+MAIL_FROM_NAME="${APP_NAME}"
+```
+
+## Production deployment
+
+### Environment
+
+Use production-safe values:
+
+```env
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://properties.example.com
+LOG_LEVEL=warning
+```
+
+Keep `.env` outside public downloads, restrict its filesystem permissions, and never commit it to Git.
+
+### Nginx example
+
+Point the document root to the Laravel `public` directory:
 
 ```nginx
 server {
     listen 80;
-    server_name your-domain.com;
+    server_name properties.example.com;
     root /var/www/real-estate-cms/public;
 
     index index.php;
-
     charset utf-8;
 
     location / {
@@ -229,205 +208,156 @@ server {
     location = /favicon.ico { access_log off; log_not_found off; }
     location = /robots.txt  { access_log off; log_not_found off; }
 
-    error_page 404 /index.php;
-
     location ~ \.php$ {
-        fastcgi_pass unix:/var/run/php/php8.2-fpm.sock;
-        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
         include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        fastcgi_param DOCUMENT_ROOT $realpath_root;
+        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
     }
 
-    location ~ /\.(?!well-known).* {
+    location ~ /\.ht {
         deny all;
     }
 }
 ```
 
-Dosya izinleri:
+Adjust the PHP-FPM socket and project path for your server. Add HTTPS with your hosting provider or certificate manager before accepting real traffic.
+
+### Permissions
+
+Grant write access only where Laravel needs it:
 
 ```bash
-sudo chown -R www-data:www-data /var/www/real-estate-cms
-sudo chmod -R 755 /var/www/real-estate-cms
-sudo chmod -R 775 storage bootstrap/cache
+chown -R www-data:www-data storage bootstrap/cache
+chmod -R ug+rwX storage bootstrap/cache
 ```
 
-HTTPS için **Let's Encrypt** önerilir:
+The exact web-server user may differ by operating system.
+
+### Cache and optimization
+
+After production environment variables are final:
 
 ```bash
-sudo certbot --nginx -d your-domain.com
-```
-
----
-
-## 🛠 Adım 7 — Production Optimizasyonu
-
-Yayına almadan önce `.env` içinde `APP_ENV=production`, `APP_DEBUG=false`,
-gerçek HTTPS `APP_URL`, `SESSION_SECURE_COOKIE=true` ve çalışan SMTP bilgilerini
-kullandığınızdan emin olun. Varsayılan yönetici parolasını mutlaka değiştirin.
-
-Mevcut kurulumun `APP_KEY` değerini taşıma/güncellemede koruyun; yeniden üretmeyin. Hem dosyalardaki `APP_URL` hem yönetim panelindeki `site_url` gerçek HTTPS alan adını göstermelidir. Veritabanını ve `public/uploads` klasörünü birlikte yedekleyin. SQL dökümleri ve `storage/app/private` içeriği web kökünün dışında kalmalıdır.
-
-```bash
-# Cache config + routes + views
-php artisan config:cache
-php artisan route:cache
+php artisan optimize
 php artisan view:cache
-php artisan event:cache
-
-# Composer autoload optimize
-composer install --no-dev --optimize-autoloader
-
-# Frontend asset minification
-npm run build
 ```
 
-Cache temizlemek (deploy sonrası):
+After changing configuration or routes:
 
 ```bash
 php artisan optimize:clear
+php artisan optimize
 ```
 
----
+### Queues
 
-## 🧹 Adım 8 — Cron / Schedule (opsiyonel)
-
-Laravel scheduler için crontab ekleyin:
+If queue-backed features are enabled, run a supervised worker:
 
 ```bash
-crontab -e
+php artisan queue:work --sleep=3 --tries=3 --timeout=120
 ```
 
-Şu satırı ekleyin:
+Use systemd, Supervisor, or the process manager provided by your hosting platform. Restart workers after every deployment:
+
+```bash
+php artisan queue:restart
+```
+
+### Scheduler
+
+Add Laravel's scheduler to cron:
 
 ```cron
 * * * * * cd /var/www/real-estate-cms && php artisan schedule:run >> /dev/null 2>&1
 ```
 
----
+### Final launch checklist
 
-## ✅ Doğrulama Kontrol Listesi
+- Replace every fictional listing, image, article, page, address, and contact detail.
+- Change the seeded administrator password and remove unused accounts.
+- Confirm `APP_DEBUG=false`.
+- Configure HTTPS and secure cookies.
+- Configure email delivery and test password resets.
+- Review upload size limits in PHP and the web server.
+- Confirm that `storage` is writable but source files are not publicly editable.
+- Verify backups and perform a restore test.
+- Review portal feeds before sharing their URLs with external services.
+- Run automated tests and dependency security checks.
 
-Kurulumdan sonra şunları test edin:
-
-- [ ] Anasayfa açılıyor: **http://localhost:8000**
-- [ ] TR/EN dil geçişi çalışıyor (sağ üst pill)
-- [ ] İlanlar görünüyor: **/all**
-- [ ] Bir ilan detayı açılıyor, galeri swipe ediliyor
-- [ ] Harita render oluyor (Leaflet)
-- [ ] Blog index açılıyor: **/blog**
-- [ ] Bir blog yazısı detayı açılıyor
-- [ ] İletişim formu açılıyor: **/page/iletisim**
-- [ ] Admin giriş: **/login** → `.env` içindeki yönetici bilgileri
-- [ ] Admin dashboard: **/admin** → 5 ilan + 6 blog görünüyor
-- [ ] Sitemap.xml açılıyor: **/sitemap.xml**
-- [ ] Robots.txt açılıyor: **/robots.txt**
-- [ ] (Groq anahtarı varsa) EN dilinde başlıklar otomatik çevriliyor
-- [ ] (Groq anahtarı varsa) Sağ alt chatbot widget cevap veriyor
-
----
-
-## 🆘 Sorun Giderme
-
-### "Class 'X' not found" hatası
+## Testing
 
 ```bash
-composer dump-autoload
+php artisan test
+npm audit
+composer audit
+```
+
+The GitHub Actions workflow runs the main application checks for pushed commits and pull requests.
+
+## Updating an installation
+
+Back up the database, environment file, and uploaded media before every update. Then review the release notes and run:
+
+```bash
+git pull --ff-only
+composer install --no-dev --prefer-dist --optimize-autoloader
+npm install
+npm run build
+php artisan migrate --force
 php artisan optimize:clear
+php artisan optimize
+php artisan queue:restart
 ```
 
-### Storage izin hatası
+Never run `db:seed` as a routine update step.
+
+## Backups
+
+A useful backup includes:
+
+- A database dump
+- The `.env` file, stored securely
+- `storage/app/public` and any other uploaded media
+- Any deployment-specific configuration
+
+Encrypt off-server backups and periodically verify that they can be restored.
+
+## Troubleshooting
+
+### Application key error
 
 ```bash
-sudo chmod -R 775 storage bootstrap/cache
-sudo chown -R www-data:www-data storage bootstrap/cache  # production
+php artisan key:generate
 ```
 
-### MySQL "Connection refused"
+### Database connection error
 
-- MySQL servisinin çalıştığından emin olun: `sudo service mysql status`
-- XAMPP kullanıyorsanız Control Panel'den MySQL'i başlatın
-- `.env` içindeki `DB_HOST` ve `DB_PORT` değerlerini kontrol edin
+Check `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD`. Confirm that the database service is running and the configured user has access.
 
-### EN sayfası "no content" gösteriyor
-
-- Cache'i temizleyin: `php artisan cache:clear`
-- Groq API anahtarınız olduğundan emin olun (`.env` → `GROQ_API_KEY`)
-- AutoTranslator cache key versiyonunu görmek için `app/Services/AutoTranslator.php` → `auto_translate.v3.*` satırına bakın
-
-### "419 Page Expired" hatası
-
-Form submit'lerinde CSRF token expire olmuş demektir. Session ayarlarını kontrol edin:
-
-```bash
-php artisan cache:clear
-php artisan config:cache
-```
-
-Tarayıcı cookie'lerini de temizleyip yeniden deneyin.
-
-### Görseller görünmüyor
+### Images or uploads are missing
 
 ```bash
 php artisan storage:link
 ```
 
-### Modeli güncelledikten sonra eski içerik geliyor
+Also verify read/write permissions for `storage` and confirm that the web root points to `public`.
+
+### Cached values do not reflect changes
 
 ```bash
 php artisan optimize:clear
-# Veya direkt:
-php artisan cache:clear
-php artisan config:clear
-php artisan route:clear
-php artisan view:clear
 ```
 
-PHP 8.2+ `php artisan serve` workers cache'leyebilir, server'ı restart edin (CTRL+C, sonra tekrar `php artisan serve`).
-
----
-
-## 🌍 Localization — Yeni Dil Ekleme
-
-EN ve TR dışında yeni dil eklemek için:
-
-1. **Dil dosyaları oluşturun:**
-   ```bash
-   cp -r lang/en lang/de    # Almanca örneği
-   ```
-
-2. **`config/app.php` içine ekleyin:**
-   ```php
-   'available_locales' => ['tr', 'en', 'de'],
-   ```
-
-3. **`database/seeders/LanguageSeeder.php` dosyasına satır ekleyin:**
-   ```php
-   ['code' => 'de', 'name' => 'Deutsch', 'is_active' => true, 'is_default' => false],
-   ```
-
-4. **Seed çalıştırın:**
-   ```bash
-   php artisan db:seed --class=LanguageSeeder
-   ```
-
-5. **AutoTranslator desteği:** `app/Services/AutoTranslator.php` içindeki `in_array($target, ['en'], true)` satırına `'de'` ekleyin.
-
----
-
-## 🔄 Güncelleme
-
-Repo'dan yeni sürüm almak için:
+### Frontend assets are missing
 
 ```bash
-git pull
-composer install
-npm install && npm run build
-php artisan migrate
-php artisan optimize:clear
+npm install
+npm run build
 ```
 
----
+### Permission errors
 
-Sorularınız için: **GitHub Issues** üzerinden bizimle iletişime geçin.
+Ensure the web-server user can write to `storage` and `bootstrap/cache`, but avoid broad world-writable permissions.
 
-Mutlu kullanımlar!
+For security issues, follow the private reporting process in [SECURITY.md](SECURITY.md).
